@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="serviceStatus">
+        <item name="android:text">@string/serviceStatusInactive</item>
+        <item name="android:textSize">20sp</item>
+        <item name="android:lineHeight">5sp</item>
+    </style>
+</resources>

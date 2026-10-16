@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--    Upper Title of Application -->
+    <string name="title"> Pocket Fm Ads Skipper </string>
+
+    <style name="title">
+        <item name="android:textAlignment">center</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textSize">23sp</item>
+        <item name="android:text">@string/title</item>
+    </style>
+
+    <!--    Status of Add Dismisser Service-->
+    <string name="serviceStatusInactive">current state of application is: Off </string>
+    <string name="serviceStatusActive">current state of application is: on</string>
+
+    <style name="ServiceStatus">
+        <item name="android:textSize">20sp</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:padding">15dp</item>
+    </style>
+
+
+    <!--    button title-->
+<string name="button_title"> Open Accessibility</string>
+</resources>
