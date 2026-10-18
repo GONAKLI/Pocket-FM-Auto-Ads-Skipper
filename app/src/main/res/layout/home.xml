@@ -2,26 +2,31 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical">
+    android:gravity="center"
+    android:orientation="vertical"
+    android:background="#eab676">
 
     <TextView
         style="@style/title"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
+        android:layout_height="wrap_content"
+        android:text="@string/title" />
 
     <TextView
+        android:id="@+id/serviceStatusTV"
         style="@style/ServiceStatus"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:id="@+id/serviceStatusTV"/>
+        android:layout_height="wrap_content" />
 
     <androidx.appcompat.widget.AppCompatButton
         android:id="@+id/openAccessibility"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/button_title"
         android:layout_gravity="center"
-        android:backgroundTint="#7FF4B0"/>
+        android:layout_marginTop="50sp"
+        android:backgroundTint="#7FF4B0"
+        android:text="@string/button_title"
+        android:textSize="29sp" />
 
 
 </LinearLayout>

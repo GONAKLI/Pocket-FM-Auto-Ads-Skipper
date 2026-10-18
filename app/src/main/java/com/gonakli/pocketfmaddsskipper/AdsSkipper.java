@@ -1,28 +1,56 @@
 package com.gonakli.pocketfmaddsskipper;
 
+import android.Manifest;
 import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.GestureDescription;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.content.Context;
+import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Path;
 import android.graphics.Rect;
+import android.os.Build;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
+import android.os.VibratorManager;
+import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
+import android.widget.Toast;
+
+import androidx.core.app.ActivityCompat;
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
 
 public class AdsSkipper extends AccessibilityService {
+    // packages where application works
     String[] checkPackages = {
             "com.radio.pocketfm"
     };
+
+    // Google Play Store package name
     String playStorePackageName = "com.android.vending";
 
+    // Unique id for notification
+    String notificationId = "Ads_Skipper";
+
+    // keywords that are used to skip the ads in the application
     String[] keywords = {
-            "skip", "close", "closeall", "close ad",
-            "google play", "unlock 2 more episodes", "close video", "try again",
+            "close video", "skip", "close", "closeall", "close ad",
+            "google play", "unlock 2 more episodes", "try again",
             "dismiss", "iv_close", "btn_close", "img_close",
             "ad_close", "ad_skip", "cross", "btn_x", "iv_x",
-            "innobi", "close_btn", "close_img", "no thanks", "not now"
+            "innobi", "close_btn", "close_img", "no thanks", "not now",
+            "later", "got it", "x", "\u00d7", "\u2715", "\u2716", "\u2717",
+            "skip ad", "skip ads", "close ads", "no, thanks", "unlock 1 more episodes"
     };
     private long lastBackPressed = 0;
     private long lastTapPressed = 0;
+
+    // counter for Total Ads skip count
+    private int totalAdSkippedCount = 0;
 
 
     @Override
@@ -43,7 +71,7 @@ public class AdsSkipper extends AccessibilityService {
         // logic for exiting google play while watching advertisement and ads redirect to google play
         if (currentPackageName.equalsIgnoreCase(playStorePackageName)) {
             // performing back press action till play store package is active
-            if(System.currentTimeMillis() - lastBackPressed > 1500) {
+            if (System.currentTimeMillis() - lastBackPressed > 500) {
                 performGlobalAction(GLOBAL_ACTION_BACK);
             }
             // lastBackPressed used to avoid multiple clicks at a same time
@@ -71,8 +99,59 @@ public class AdsSkipper extends AccessibilityService {
         // if root is null, then simply return
         if (root == null) return;
 
+        // special case - if ads are provided by inMobi ads service this will also give a try
+        if(currentClassName.toLowerCase().contains("com.inmobi.ads")){
+            // only for testing no use case
+            Log.d("checkState", "onAccessibilityEvent: inside of com.inmobi.ads" + currentClassName );
+
+            // function calling for further actions on inMobi ads
+            handleInMobiAds(root);
+        }
+        // only for testing no use case
+        Log.d("checkState", "onAccessibilityEvent: outside of com.inmobi.ads " + currentClassName );
+
+
         // to perform further action in root node, we make a function dumpTree()
         dumpTree(root);
+    }
+
+    private void handleInMobiAds(AccessibilityNodeInfo node) {
+        // if node is null, simply return
+        if(node == null) return;
+
+        // area is used to find and draw boundaries of that particular node
+        Rect area = new Rect();
+
+        // find boundaries of a node in the screen
+        node.getBoundsInScreen(area);
+
+        // getting the size of display of a device in displayMetrics
+        DisplayMetrics displayMetrics = getResources().getDisplayMetrics();
+        //only to check how many child node exist in parent node
+        Log.d("nodeCount", "handleInMobiAds: " + node.getChildCount());
+
+        // used to find any button situated in top of the screen either left or right side
+        boolean nearTopCorner =
+                area.width() < displayMetrics.widthPixels * 0.15 &&
+                        area.exactCenterY() < displayMetrics.heightPixels * 0.25 &&
+                        (area.exactCenterX() < displayMetrics.widthPixels * 0.2 ||
+                                area.exactCenterX() >displayMetrics.widthPixels *0.8);
+
+        // to check a button text is empty, null or not
+        boolean isLabel = node.getText() == null || node.getText().toString().isEmpty();
+
+        if(nearTopCorner && isLabel){
+            // if both condition are true, we will perform a tapGesture on that node
+            tapGesture(area.exactCenterX(), area.exactCenterY());
+        }else{
+            // else we will loop through on its child node and use recursion to find till last child node
+            int i =0;
+            while (i < node.getChildCount()){
+                // calling our own function again with child node
+                handleInMobiAds(node.getChild(i));
+                i++;
+            }
+        }
     }
 
     private void dumpTree(AccessibilityNodeInfo root) {
@@ -134,15 +213,31 @@ public class AdsSkipper extends AccessibilityService {
         // result come from tapGesture main function, Which ultimately generate Tap effects on the screen
         boolean result = tapGesture(area.exactCenterX(), area.exactCenterY()); // function calling start from here
 
+        if (!result) {
+            //check if node is clickable, if yes, then perform click directly
+            if (node.isClickable()) {
+                node.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+            }
+        }
         // logging result and node clickable in the logcat for inspections
-        Log.d("result", "is node clickable: : " + node.isClickable() );
-        Log.d("result", "result of tapGesture function is: " + result );
+        Log.d("result", "is node clickable: : " + node.isClickable());
+        Log.d("result", "result of tapGesture function is: " + result);
+
+        // increasing totalAdSkipped Count by 1
+        totalAdSkippedCount++;
+        // send a notification if totalAdSkippedCount is a multiple of 10 i.e after every 10 ads
+        if (totalAdSkippedCount % 10 == 0) {
+            // function called for notification send
+            sendNotification();
+        }
+        //produce vibration to check Service called and executed
+        generateVibration();
 
     }
 
     private boolean tapGesture(float x, float y) {
         // if last tap occurs recently, then return with false output as a result
-        if(System.currentTimeMillis() - lastTapPressed < 1500) return false;
+        if (System.currentTimeMillis() - lastTapPressed < 500) return false;
 
         // setting the value of last tap pressed for further use
         lastTapPressed = System.currentTimeMillis();
@@ -152,7 +247,7 @@ public class AdsSkipper extends AccessibilityService {
         path.moveTo(x, y);
 
         // adding stroke or tap on the screen
-        GestureDescription.StrokeDescription stroke = new GestureDescription.StrokeDescription(path, 0, 50L);
+        GestureDescription.StrokeDescription stroke = new GestureDescription.StrokeDescription(path, 50L, 80L);
 
         //  build prepared using stroke
         GestureDescription gestureDescription = new GestureDescription.Builder().addStroke(stroke).build();
@@ -161,9 +256,74 @@ public class AdsSkipper extends AccessibilityService {
         return dispatchGesture(gestureDescription, null, null);
     }
 
+    private void generateVibration() {
+        // used to produce vibration after ads skipped
+        Vibrator vibrator;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            // Getting Vibration manager service
+            VibratorManager vibratorManager = (VibratorManager) getSystemService(Context.VIBRATOR_MANAGER_SERVICE);
+            // Getting mobile vibrator
+            vibrator = vibratorManager.getDefaultVibrator();
+        }else{
+            // if android version is 11 or lower, it will be used
+            vibrator =(Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+        }
+
+        // safety check in case vibrator is not present in device or null in worst case
+        if(vibrator == null || !vibrator.hasVibrator()) return;
+
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            //  adding vibration effect duration and intensity
+           VibrationEffect vibrationEffect = VibrationEffect.createOneShot(50, 50);
+            // start vibrating
+            vibrator.vibrate(vibrationEffect);
+        }else{
+            // if android version is 7 or lower, it will be used
+            vibrator.vibrate(50);
+        }
+    }
+
+    private void sendNotification() {
+        // used to notify user about Total ads count
+        NotificationChannel notificationChannel;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            notificationChannel = new NotificationChannel(
+                    notificationId,
+                    "Pocket FM Ads Skipper",
+                    NotificationManager.IMPORTANCE_MIN
+            );
+            NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            notificationManager.createNotificationChannel(notificationChannel);
+        }
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, notificationId)
+                .setContentTitle("Total Ads Skipped: " + totalAdSkippedCount)
+                .setSmallIcon(R.drawable.pocket_fm_icon)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setAutoCancel(true);
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
+            NotificationManagerCompat.from(this).notify(1, builder.build());
+        }
+    }
+
     @Override
     public void onInterrupt() {
 
     }
 
+    @Override
+    public boolean onUnbind(Intent intent) {
+        // Called when service is closed by user from accessibility setting
+        Toast.makeText(this, "Thanks For using our service", Toast.LENGTH_SHORT).show();
+        totalAdSkippedCount = 0;
+        return true;
+    }
+
+    @Override
+    protected void onServiceConnected() {
+        // called when service started by the user, it shows a toast
+        super.onServiceConnected();
+        Toast.makeText(this, "Service started, start enjoying", Toast.LENGTH_SHORT).show();
+    }
 }

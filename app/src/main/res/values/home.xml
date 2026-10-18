@@ -6,8 +6,8 @@
     <style name="title">
         <item name="android:textAlignment">center</item>
         <item name="android:textStyle">bold</item>
-        <item name="android:textSize">23sp</item>
-        <item name="android:text">@string/title</item>
+        <item name="android:textSize">25sp</item>
+        <item name="android:layout_marginBottom">30sp</item>
     </style>
 
     <!--    Status of Add Dismisser Service-->
