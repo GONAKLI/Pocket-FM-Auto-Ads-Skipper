@@ -8,14 +8,20 @@ import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.graphics.Path;
+import android.graphics.PixelFormat;
 import android.graphics.Rect;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.os.VibratorManager;
 import android.util.DisplayMetrics;
 import android.util.Log;
+import android.view.Gravity;
+import android.view.View;
+import android.view.WindowManager;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.Toast;
@@ -44,13 +50,15 @@ public class AdsSkipper extends AccessibilityService {
             "ad_close", "ad_skip", "cross", "btn_x", "iv_x",
             "innobi", "close_btn", "close_img", "no thanks", "not now",
             "later", "got it", "x", "\u00d7", "\u2715", "\u2716", "\u2717",
-            "skip ad", "skip ads", "close ads", "no, thanks", "unlock 1 more episodes"
+            "skip ad", "skip ads", "close ads", "no, thanks", "unlock 1 more episodes",
+            "बंद करे", "बंद करें", "300x300"
     };
-    private long lastBackPressed = 0;
     private long lastTapPressed = 0;
 
     // counter for Total Ads skip count
     private int totalAdSkippedCount = 0;
+
+    WindowManager windowManager;
 
 
     @Override
@@ -71,11 +79,7 @@ public class AdsSkipper extends AccessibilityService {
         // logic for exiting google play while watching advertisement and ads redirect to google play
         if (currentPackageName.equalsIgnoreCase(playStorePackageName)) {
             // performing back press action till play store package is active
-            if (System.currentTimeMillis() - lastBackPressed > 500) {
                 performGlobalAction(GLOBAL_ACTION_BACK);
-            }
-            // lastBackPressed used to avoid multiple clicks at a same time
-            lastBackPressed = System.currentTimeMillis();
             return;
         }
 
@@ -99,59 +103,8 @@ public class AdsSkipper extends AccessibilityService {
         // if root is null, then simply return
         if (root == null) return;
 
-        // special case - if ads are provided by inMobi ads service this will also give a try
-        if(currentClassName.toLowerCase().contains("com.inmobi.ads")){
-            // only for testing no use case
-            Log.d("checkState", "onAccessibilityEvent: inside of com.inmobi.ads" + currentClassName );
-
-            // function calling for further actions on inMobi ads
-            handleInMobiAds(root);
-        }
-        // only for testing no use case
-        Log.d("checkState", "onAccessibilityEvent: outside of com.inmobi.ads " + currentClassName );
-
-
         // to perform further action in root node, we make a function dumpTree()
         dumpTree(root);
-    }
-
-    private void handleInMobiAds(AccessibilityNodeInfo node) {
-        // if node is null, simply return
-        if(node == null) return;
-
-        // area is used to find and draw boundaries of that particular node
-        Rect area = new Rect();
-
-        // find boundaries of a node in the screen
-        node.getBoundsInScreen(area);
-
-        // getting the size of display of a device in displayMetrics
-        DisplayMetrics displayMetrics = getResources().getDisplayMetrics();
-        //only to check how many child node exist in parent node
-        Log.d("nodeCount", "handleInMobiAds: " + node.getChildCount());
-
-        // used to find any button situated in top of the screen either left or right side
-        boolean nearTopCorner =
-                area.width() < displayMetrics.widthPixels * 0.15 &&
-                        area.exactCenterY() < displayMetrics.heightPixels * 0.25 &&
-                        (area.exactCenterX() < displayMetrics.widthPixels * 0.2 ||
-                                area.exactCenterX() >displayMetrics.widthPixels *0.8);
-
-        // to check a button text is empty, null or not
-        boolean isLabel = node.getText() == null || node.getText().toString().isEmpty();
-
-        if(nearTopCorner && isLabel){
-            // if both condition are true, we will perform a tapGesture on that node
-            tapGesture(area.exactCenterX(), area.exactCenterY());
-        }else{
-            // else we will loop through on its child node and use recursion to find till last child node
-            int i =0;
-            while (i < node.getChildCount()){
-                // calling our own function again with child node
-                handleInMobiAds(node.getChild(i));
-                i++;
-            }
-        }
     }
 
     private void dumpTree(AccessibilityNodeInfo root) {
@@ -185,9 +138,6 @@ public class AdsSkipper extends AccessibilityService {
                 if (text.equalsIgnoreCase(item.toLowerCase()) || description.equalsIgnoreCase(item.toLowerCase())) {
                     performClickAction(rootChild);
                     break;
-                } else if (text.equalsIgnoreCase("300x300") || description.equalsIgnoreCase("300x300")) {
-                    performClickAction(rootChild);
-                    break;
                 } else if (id.equalsIgnoreCase(item)) {
                     performClickAction(rootChild);
                     break;
@@ -217,6 +167,7 @@ public class AdsSkipper extends AccessibilityService {
             //check if node is clickable, if yes, then perform click directly
             if (node.isClickable()) {
                 node.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+                showTouchOnScreen(area.exactCenterX(), area.exactCenterY());
             }
         }
         // logging result and node clickable in the logcat for inspections
@@ -252,6 +203,7 @@ public class AdsSkipper extends AccessibilityService {
         //  build prepared using stroke
         GestureDescription gestureDescription = new GestureDescription.Builder().addStroke(stroke).build();
 
+        showTouchOnScreen(x,y);
         // gesture is performed and result is given to the parent calling function, where its called
         return dispatchGesture(gestureDescription, null, null);
     }
@@ -264,21 +216,21 @@ public class AdsSkipper extends AccessibilityService {
             VibratorManager vibratorManager = (VibratorManager) getSystemService(Context.VIBRATOR_MANAGER_SERVICE);
             // Getting mobile vibrator
             vibrator = vibratorManager.getDefaultVibrator();
-        }else{
+        } else {
             // if android version is 11 or lower, it will be used
-            vibrator =(Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+            vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
         }
 
         // safety check in case vibrator is not present in device or null in worst case
-        if(vibrator == null || !vibrator.hasVibrator()) return;
+        if (vibrator == null || !vibrator.hasVibrator()) return;
 
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             //  adding vibration effect duration and intensity
-           VibrationEffect vibrationEffect = VibrationEffect.createOneShot(50, 50);
+            VibrationEffect vibrationEffect = VibrationEffect.createOneShot(50, 50);
             // start vibrating
             vibrator.vibrate(vibrationEffect);
-        }else{
+        } else {
             // if android version is 7 or lower, it will be used
             vibrator.vibrate(50);
         }
@@ -298,7 +250,7 @@ public class AdsSkipper extends AccessibilityService {
         }
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, notificationId)
-                .setContentTitle("Total Ads Skipped: " + totalAdSkippedCount)
+                .setContentTitle("Total clicks on screen: " + totalAdSkippedCount)
                 .setSmallIcon(R.drawable.pocket_fm_icon)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .setAutoCancel(true);
@@ -325,5 +277,44 @@ public class AdsSkipper extends AccessibilityService {
         // called when service started by the user, it shows a toast
         super.onServiceConnected();
         Toast.makeText(this, "Service started, start enjoying", Toast.LENGTH_SHORT).show();
+    }
+
+    private void showTouchOnScreen(float x, float y) {
+        if (windowManager == null) {
+            windowManager = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
+        }
+        View view = new View(this);
+
+        GradientDrawable gradientDrawable = new GradientDrawable();
+        gradientDrawable.setShape(GradientDrawable.RECTANGLE);
+        gradientDrawable.setColor(Color.RED);
+        gradientDrawable.setStroke(4, Color.BLACK);
+        view.setBackground(gradientDrawable);
+
+        int size = 60;
+        WindowManager.LayoutParams layoutParams = new WindowManager.LayoutParams(
+                size,
+                size,
+                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+                PixelFormat.TRANSLUCENT
+        );
+        layoutParams.gravity = Gravity.TOP | Gravity.START;
+        layoutParams.x = (int) ( x - size / 2f);
+        layoutParams.y = (int) (y - size / 2f);
+
+        try {
+            windowManager.addView(view, layoutParams);
+        } catch (Exception e) {
+            return;
+        }
+
+        view.postDelayed(() -> {
+            try {
+                windowManager.removeView(view);
+            } catch (Exception e) {
+                return;
+            }
+        }, 500);
     }
 }
