@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!--    Upper Title of Application -->
-    <string name="title"> Pocket Fm Ads Skipper </string>
+    <string name="title"> My Custom Auto - Ads Skipper </string>
 
     <style name="title">
         <item name="android:textAlignment">center</item>

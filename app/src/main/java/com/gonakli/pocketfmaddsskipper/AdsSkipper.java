@@ -17,7 +17,6 @@ import android.os.Build;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.os.VibratorManager;
-import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
@@ -57,7 +56,7 @@ public class AdsSkipper extends AccessibilityService {
 
     // counter for Total Ads skip count
     private int totalAdSkippedCount = 0;
-
+    private long lastTimePlayStoreClosed = 0;
     WindowManager windowManager;
 
 
@@ -76,11 +75,18 @@ public class AdsSkipper extends AccessibilityService {
         Log.d("showPackages", "className: " + currentClassName);
         Log.d("showPackages", "packageName: " + currentPackageName);
 
-        // logic for exiting google play while watching advertisement and ads redirect to google play
+        // logic for exiting Google Play while watching advertisement and ads redirect to Google Play
         if (currentPackageName.equalsIgnoreCase(playStorePackageName)) {
-            // performing back press action till play store package is active
+            // If else block to Prevent multiple back Press happens
+            if ((System.currentTimeMillis() - lastTimePlayStoreClosed) < 500) {
+                return;
+            } else {
+                lastTimePlayStoreClosed = System.currentTimeMillis();
+                // performing back press action
                 performGlobalAction(GLOBAL_ACTION_BACK);
-            return;
+                return;
+            }
+
         }
 
         // checking if pocket fm application is active or not
@@ -203,7 +209,7 @@ public class AdsSkipper extends AccessibilityService {
         //  build prepared using stroke
         GestureDescription gestureDescription = new GestureDescription.Builder().addStroke(stroke).build();
 
-        showTouchOnScreen(x,y);
+        showTouchOnScreen(x, y);
         // gesture is performed and result is given to the parent calling function, where its called
         return dispatchGesture(gestureDescription, null, null);
     }
@@ -250,7 +256,7 @@ public class AdsSkipper extends AccessibilityService {
         }
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, notificationId)
-                .setContentTitle("Total clicks on screen: " + totalAdSkippedCount)
+                .setContentTitle("Total Clicks Happens :- " + totalAdSkippedCount)
                 .setSmallIcon(R.drawable.pocket_fm_icon)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .setAutoCancel(true);
@@ -286,9 +292,9 @@ public class AdsSkipper extends AccessibilityService {
         View view = new View(this);
 
         GradientDrawable gradientDrawable = new GradientDrawable();
-        gradientDrawable.setShape(GradientDrawable.RECTANGLE);
-        gradientDrawable.setColor(Color.RED);
-        gradientDrawable.setStroke(4, Color.BLACK);
+        gradientDrawable.setShape(GradientDrawable.OVAL);
+        gradientDrawable.setColor(Color.YELLOW);
+        gradientDrawable.setStroke(4, Color.GREEN);
         view.setBackground(gradientDrawable);
 
         int size = 60;
@@ -300,7 +306,7 @@ public class AdsSkipper extends AccessibilityService {
                 PixelFormat.TRANSLUCENT
         );
         layoutParams.gravity = Gravity.TOP | Gravity.START;
-        layoutParams.x = (int) ( x - size / 2f);
+        layoutParams.x = (int) (x - size / 2f);
         layoutParams.y = (int) (y - size / 2f);
 
         try {
