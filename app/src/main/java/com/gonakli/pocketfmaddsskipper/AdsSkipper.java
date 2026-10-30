@@ -49,8 +49,8 @@ public class AdsSkipper extends AccessibilityService {
             "ad_close", "ad_skip", "cross", "btn_x", "iv_x",
             "innobi", "close_btn", "close_img", "no thanks", "not now",
             "later", "got it", "x", "\u00d7", "\u2715", "\u2716", "\u2717",
-            "skip ad", "skip ads", "close ads", "no, thanks", "unlock 1 more episodes",
-            "बंद करे", "बंद करें", "300x300"
+            "skip ad", "skip ads", "close ads", "no, thanks", "unlock 1 more episode",
+            "बंद करे", "बंद करें", "300x300", "continue watching ads"
     };
     private long lastTapPressed = 0;
 
